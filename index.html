@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Snake Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🐍 Advanced Snake</h1>
+            <div class="stats">
+                <div class="stat">
+                    <span class="label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">High Score:</span>
+                    <span id="highScore">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Skill Points:</span>
+                    <span id="skillPoints">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="game-section">
+                <div class="game-modes">
+                    <button class="mode-btn active" data-mode="classic">Classic</button>
+                    <button class="mode-btn" data-mode="speed">Speed Rush</button>
+                    <button class="mode-btn" data-mode="obstacles">Obstacles</button>
+                </div>
+                
+                <canvas id="gameCanvas" width="400" height="400"></canvas>
+                
+                <div class="game-controls">
+                    <button id="startBtn" class="control-btn">Start Game</button>
+                    <button id="pauseBtn" class="control-btn" disabled>Pause</button>
+                    <button id="resetBtn" class="control-btn">Reset</button>
+                </div>
+
+                <div class="instructions">
+                    <p>Use WASD or Arrow Keys to move</p>
+                    <p>Collect food to grow and earn points!</p>
+                </div>
+            </div>
+
+            <div class="skill-tree-section">
+                <h2>🌟 Skill Tree</h2>
+                <div class="skill-tree">
+                    <div class="skill-category">
+                        <h3>Speed Skills</h3>
+                        <div class="skill-item" data-skill="speed1">
+                            <div class="skill-icon">⚡</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Speed Boost I</div>
+                                <div class="skill-desc">+20% faster movement</div>
+                                <div class="skill-cost">Cost: 5 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="speed1">Unlock</button>
+                        </div>
+                        
+                        <div class="skill-item" data-skill="speed2">
+                            <div class="skill-icon">⚡⚡</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Speed Boost II</div>
+                                <div class="skill-desc">+40% faster movement</div>
+                                <div class="skill-cost">Cost: 10 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="speed2">Unlock</button>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h3>Score Skills</h3>
+                        <div class="skill-item" data-skill="score1">
+                            <div class="skill-icon">💎</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Score Multiplier</div>
+                                <div class="skill-desc">2x points per food</div>
+                                <div class="skill-cost">Cost: 8 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="score1">Unlock</button>
+                        </div>
+                        
+                        <div class="skill-item" data-skill="bonus">
+                            <div class="skill-icon">🎁</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Bonus Food</div>
+                                <div class="skill-desc">Special food spawns</div>
+                                <div class="skill-cost">Cost: 12 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="bonus">Unlock</button>
+                        </div>
+                    </div>
+
+                    <div class="skill-category">
+                        <h3>Special Skills</h3>
+                        <div class="skill-item" data-skill="ghost">
+                            <div class="skill-icon">👻</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Ghost Mode</div>
+                                <div class="skill-desc">Pass through walls once</div>
+                                <div class="skill-cost">Cost: 15 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="ghost">Unlock</button>
+                        </div>
+                        
+                        <div class="skill-item" data-skill="shrink">
+                            <div class="skill-icon">🔄</div>
+                            <div class="skill-info">
+                                <div class="skill-name">Emergency Shrink</div>
+                                <div class="skill-desc">Shrink when hitting tail</div>
+                                <div class="skill-cost">Cost: 20 SP</div>
+                            </div>
+                            <button class="skill-btn" data-skill="shrink">Unlock</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-over-modal" id="gameOverModal">
+            <div class="modal-content">
+                <h2>Game Over!</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <p>Skill Points Earned: <span id="earnedSP">0</span></p>
+                <button id="playAgainBtn" class="control-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// Snake Game - Functional Implementation
+let canvas, ctx, gridSize, tileCount;
+let gameState = 'stopped';
+let gameMode = 'classic';
+let score = 0;
+let skillPoints = parseInt(localStorage.getItem('snakeSkillPoints')) || 0;
+let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
+let skills = JSON.parse(localStorage.getItem('snakeSkills')) || {};
+let ghostModeUsed = false;
+let snake = [];
+let dx = 0, dy = 0;
+let food = {};
+let obstacles = [];
+let bonusFood = null;
+let gameLoop;
+let gameSpeed;
+
+function initGame() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    gridSize = 20;
+    tileCount = canvas.width / gridSize;
+    
+    snake = [{x: 10, y: 10}];
+    dx = 0;
+    dy = 0;
+    food = generateFood();
+    score = 0;
+    ghostModeUsed = false;
+    
+    if (gameMode === 'obstacles') {
+        generateObstacles();
+    } else {
+        obstacles = [];
+    }
+    
+    bonusFood = null;
+    updateUI();
+    draw();
+}
+
+function bindEvents() {
+    // Game controls
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('pauseBtn').addEventListener('click', pauseGame);
+    document.getElementById('resetBtn').addEventListener('click', resetGame);
+    document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+    
+    // Game modes
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => changeMode(e.target.dataset.mode));
+    });
+    
+    // Keyboard controls
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // Skill tree
+    document.querySelectorAll('.skill-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => unlockSkill(e.target.dataset.skill));
+    });
+}
+
+function changeMode(mode) {
+    if (gameState === 'running') return;
+    
+    gameMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+    initGame();
+}
+
+function startGame() {
+    if (gameState === 'running') return;
+    
+    gameState = 'running';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('pauseBtn').disabled = false;
+    
+    const baseSpeed = gameMode === 'speed' ? 80 : 150;
+    const speedMultiplier = skills.speed1 ? 0.8 : (skills.speed2 ? 0.6 : 1);
+    gameSpeed = baseSpeed * speedMultiplier;
+    
+    gameLoop = setInterval(update, gameSpeed);
+}
+
+function pauseGame() {
+    if (gameState !== 'running') return;
+    
+    gameState = 'paused';
+    clearInterval(gameLoop);
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('pauseBtn').disabled = true;
+}
+
+function resetGame() {
+    gameState = 'stopped';
+    clearInterval(gameLoop);
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('pauseBtn').disabled = true;
+    document.getElementById('gameOverModal').style.display = 'none';
+    
+    initGame();
+}
+
+function handleKeyPress(e) {
+    if (gameState !== 'running') return;
+    
+    const key = e.key.toLowerCase();
+    
+    // Prevent reverse direction
+    if ((key === 'arrowleft' || key === 'a') && dx !== 1) {
+        dx = -1; dy = 0;
+    } else if ((key === 'arrowright' || key === 'd') && dx !== -1) {
+        dx = 1; dy = 0;
+    } else if ((key === 'arrowup' || key === 'w') && dy !== 1) {
+        dx = 0; dy = -1;
+    } else if ((key === 'arrowdown' || key === 's') && dy !== -1) {
+        dx = 0; dy = 1;
+    }
+}
+
+function update() {
+    if (gameState !== 'running') return;
+    
+    // Move snake head
+    const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+    
+    // Check wall collision
+    if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+        if (skills.ghost && !ghostModeUsed) {
+            // Ghost mode - wrap around
+            head.x = head.x < 0 ? tileCount - 1 : head.x >= tileCount ? 0 : head.x;
+            head.y = head.y < 0 ? tileCount - 1 : head.y >= tileCount ? 0 : head.y;
+            ghostModeUsed = true;
+        } else {
+            gameOver();
+            return;
+        }
+    }
+    
+    // Check obstacle collision
+    if (obstacles.some(obs => obs.x === head.x && obs.y === head.y)) {
+        gameOver();
+        return;
+    }
+    
+    // Check self collision
+    if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        if (skills.shrink && snake.length > 3) {
+            // Emergency shrink
+            snake = snake.slice(0, Math.ceil(snake.length / 2));
+        } else {
+            gameOver();
+            return;
+        }
+    }
+    
+    snake.unshift(head);
+    
+    // Check food collision
+    let foodEaten = false;
+    if (head.x === food.x && head.y === food.y) {
+        foodEaten = true;
+        const baseScore = gameMode === 'speed' ? 15 : 10;
+        const scoreMultiplier = skills.score1 ? 2 : 1;
+        score += baseScore * scoreMultiplier;
+        food = generateFood();
+        
+        // Generate bonus food occasionally
+        if (skills.bonus && Math.random() < 0.3 && !bonusFood) {
+            bonusFood = generateFood();
+        }
+    }
+    
+    // Check bonus food collision
+    if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
+        foodEaten = true;
+        score += 50;
+        bonusFood = null;
+    }
+    
+    if (!foodEaten) {
+        snake.pop();
+    }
+    
+    updateUI();
+    draw();
+}
+
+function generateFood() {
+    let newFood;
+    do {
+        newFood = {
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * tileCount)
+        };
+    } while (
+        snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
+        obstacles.some(obs => obs.x === newFood.x && obs.y === newFood.y) ||
+        (bonusFood && bonusFood.x === newFood.x && bonusFood.y === newFood.y)
+    );
+    return newFood;
+}
+
+function generateObstacles() {
+    obstacles = [];
+    const obstacleCount = 8;
+    
+    for (let i = 0; i < obstacleCount; i++) {
+        let obstacle;
+        do {
+            obstacle = {
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * tileCount)
+            };
+        } while (
+            snake.some(segment => segment.x === obstacle.x && segment.y === obstacle.y) ||
+            obstacles.some(obs => obs.x === obstacle.x && obs.y === obstacle.y) ||
+            (Math.abs(obstacle.x - 10) < 3 && Math.abs(obstacle.y - 10) < 3) // Keep spawn area clear
+        );
+        obstacles.push(obstacle);
+    }
+}
+
+function draw() {
+    // Clear canvas
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= tileCount; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * gridSize, 0);
+        ctx.lineTo(i * gridSize, canvas.height);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(0, i * gridSize);
+        ctx.lineTo(canvas.width, i * gridSize);
+        ctx.stroke();
+    }
+    
+    // Draw obstacles
+    ctx.fillStyle = '#8B4513';
+    obstacles.forEach(obstacle => {
+        ctx.fillRect(obstacle.x * gridSize, obstacle.y * gridSize, gridSize - 2, gridSize - 2);
+    });
+    
+    // Draw food
+    ctx.fillStyle = '#FF6B6B';
+    ctx.beginPath();
+    ctx.arc(
+        food.x * gridSize + gridSize / 2,
+        food.y * gridSize + gridSize / 2,
+        gridSize / 2 - 2,
+        0,
+        2 * Math.PI
+    );
+    ctx.fill();
+    
+    // Draw bonus food
+    if (bonusFood) {
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(
+            bonusFood.x * gridSize + gridSize / 2,
+            bonusFood.y * gridSize + gridSize / 2,
+            gridSize / 2 - 2,
+            0,
+            2 * Math.PI
+        );
+        ctx.fill();
+    }
+    
+    // Draw snake
+    snake.forEach((segment, index) => {
+        if (index === 0) {
+            // Snake head
+            ctx.fillStyle = ghostModeUsed ? 'rgba(76, 175, 80, 0.7)' : '#4CAF50';
+        } else {
+            // Snake body
+            ctx.fillStyle = `rgba(76, 175, 80, ${1 - index * 0.05})`;
+        }
+        
+        ctx.fillRect(
+            segment.x * gridSize + 1,
+            segment.y * gridSize + 1,
+            gridSize - 2,
+            gridSize - 2
+        );
+    });
+}
+
+function gameOver() {
+    gameState = 'gameOver';
+    clearInterval(gameLoop);
+    
+    // Update high score
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('snakeHighScore', highScore);
+    }
+    
+    // Award skill points
+    const earnedSP = Math.floor(score / 50);
+    skillPoints += earnedSP;
+    localStorage.setItem('snakeSkillPoints', skillPoints);
+    
+    // Show game over modal
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('earnedSP').textContent = earnedSP;
+    document.getElementById('gameOverModal').style.display = 'flex';
+    
+    updateUI();
+    updateSkillTree();
+}
+
+function unlockSkill(skillId) {
+    const skillCosts = {
+        speed1: 5, speed2: 10, score1: 8, bonus: 12, ghost: 15, shrink: 20
+    };
+    
+    const cost = skillCosts[skillId];
+    if (skillPoints >= cost && !skills[skillId]) {
+        // Check prerequisites
+        if (skillId === 'speed2' && !skills.speed1) return;
+        
+        skills[skillId] = true;
+        skillPoints -= cost;
+        
+        localStorage.setItem('snakeSkills', JSON.stringify(skills));
+        localStorage.setItem('snakeSkillPoints', skillPoints);
+        
+        updateUI();
+        updateSkillTree();
+    }
+}
+
+function updateUI() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('highScore').textContent = highScore;
+    document.getElementById('skillPoints').textContent = skillPoints;
+}
+
+function updateSkillTree() {
+    const skillCosts = {
+        speed1: 5, speed2: 10, score1: 8, bonus: 12, ghost: 15, shrink: 20
+    };
+    
+    Object.keys(skillCosts).forEach(skillId => {
+        const skillItem = document.querySelector(`[data-skill="${skillId}"]`);
+        if (!skillItem) return;
+        
+        const skillBtn = skillItem.querySelector('.skill-btn');
+        if (!skillBtn) return;
+        
+        if (skills[skillId]) {
+            skillItem.classList.add('unlocked');
+            skillBtn.textContent = 'Unlocked';
+            skillBtn.classList.add('unlocked');
+            skillBtn.disabled = true;
+        } else {
+            const cost = skillCosts[skillId];
+            const canAfford = skillPoints >= cost;
+            const meetsPrereqs = skillId !== 'speed2' || skills.speed1;
+            
+            skillBtn.disabled = !canAfford || !meetsPrereqs;
+            if (!meetsPrereqs) {
+                skillBtn.textContent = 'Locked';
+            } else if (!canAfford) {
+                skillBtn.textContent = 'Need SP';
+            } else {
+                skillBtn.textContent = 'Unlock';
+            }
+        }
+    });
+}
+
+// Initialize game when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initGame();
+    bindEvents();
+    updateUI();
+    updateSkillTree();
+});
+    </script>
+    </script>
+</body>
+</html>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    color: white;
+}
+
+.game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.stat {
+    background: rgba(255,255,255,0.1);
+    padding: 10px 20px;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    align-items: start;
+}
+
+.game-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.game-modes {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.mode-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.mode-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+.mode-btn.active {
+    background: rgba(255,255,255,0.4);
+    box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+}
+
+#gameCanvas {
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 15px;
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.game-controls {
+    display: flex;
+    gap: 15px;
+}
+
+.control-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.control-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.instructions {
+    text-align: center;
+    opacity: 0.8;
+}
+
+.skill-tree-section {
+    background: rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.skill-tree-section h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+}
+
+.skill-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.skill-category h3 {
+    color: #FFD700;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.skill-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.3s ease;
+}
+
+.skill-item:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateX(5px);
+}
+
+.skill-item.unlocked {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.skill-icon {
+    font-size: 2rem;
+    width: 50px;
+    text-align: center;
+}
+
+.skill-info {
+    flex: 1;
+}
+
+.skill-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.skill-desc {
+    opacity: 0.8;
+    font-size: 0.9rem;
+    margin-bottom: 3px;
+}
+
+.skill-cost {
+    font-size: 0.8rem;
+    color: #FFD700;
+}
+
+.skill-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 15px;
+    background: linear-gradient(45deg, #FF6B6B, #FF5722);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.skill-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+
+.skill-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.skill-btn.unlocked {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+}
+
+.game-over-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #2a5298, #1e3c72);
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.modal-content h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #FFD700;
+}
+
+.modal-content p {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .game-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    #gameCanvas {
+        width: 100%;
+        height: auto;
+    }
+}
+</style>
+
+<script>
+class SnakeGame {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.gridSize = 20;
+        this.tileCount = this.canvas.width / this.gridSize;
+        
+        this.gameState = 'stopped';
+        this.gameMode = 'classic';
+        this.score = 0;
+        this.skillPoints = parseInt(localStorage.getItem('snakeSkillPoints')) || 0;
+        this.highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
+        
+        this.skills = JSON.parse(localStorage.getItem('snakeSkills')) || {};
+        this.ghostModeUsed = false;
+        
+        this.initGame();
+        this.bindEvents();
+        this.updateUI();
+        this.updateSkillTree();
+        
+        this.obstacles = [];
+        this.bonusFood = null;
+    }
+    
+    initGame() {
+        this.snake = [
+            {x: 10, y: 10}
+        ];
+        this.dx = 0;
+        this.dy = 0;
+        this.food = this.generateFood();
+        this.score = 0;
+        this.ghostModeUsed = false;
+        
+        if (this.gameMode === 'obstacles') {
+            this.generateObstacles();
+        } else {
+            this.obstacles = [];
+        }
+        
+        this.bonusFood = null;
+        this.updateUI();
+    }
+    
+    bindEvents() {
+        // Game controls
+        document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+        document.getElementById('pauseBtn').addEventListener('click', () => this.pauseGame());
+        document.getElementById('resetBtn').addEventListener('click', () => this.resetGame());
+        document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
+        
+        // Game modes
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.changeMode(e.target.dataset.mode));
+        });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => this.handleKeyPress(e));
+        
+        // Skill tree
+        document.querySelectorAll('.skill-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.unlockSkill(e.target.dataset.skill));
+        });
+    }
+    
+    changeMode(mode) {
+        if (this.gameState === 'running') return;
+        
+        this.gameMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+        this.initGame();
+        this.draw();
+    }
+    
+    startGame() {
+        if (this.gameState === 'running') return;
+        
+        this.gameState = 'running';
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('pauseBtn').disabled = false;
+        
+        const baseSpeed = this.gameMode === 'speed' ? 80 : 150;
+        const speedMultiplier = this.skills.speed1 ? 0.8 : (this.skills.speed2 ? 0.6 : 1);
+        this.gameSpeed = baseSpeed * speedMultiplier;
+        
+        this.gameLoop = setInterval(() => this.update(), this.gameSpeed);
+    }
+    
+    pauseGame() {
+        if (this.gameState !== 'running') return;
+        
+        this.gameState = 'paused';
+        clearInterval(this.gameLoop);
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
+    }
+    
+    resetGame() {
+        this.gameState = 'stopped';
+        clearInterval(this.gameLoop);
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
+        document.getElementById('gameOverModal').style.display = 'none';
+        
+        this.initGame();
+        this.draw();
+    }
+    
+    handleKeyPress(e) {
+        if (this.gameState !== 'running') return;
+        
+        const key = e.key.toLowerCase();
+        
+        // Prevent reverse direction
+        if ((key === 'arrowleft' || key === 'a') && this.dx !== 1) {
+            this.dx = -1; this.dy = 0;
+        } else if ((key === 'arrowright' || key === 'd') && this.dx !== -1) {
+            this.dx = 1; this.dy = 0;
+        } else if ((key === 'arrowup' || key === 'w') && this.dy !== 1) {
+            this.dx = 0; this.dy = -1;
+        } else if ((key === 'arrowdown' || key === 's') && this.dy !== -1) {
+            this.dx = 0; this.dy = 1;
+        }
+    }
+    
+    update() {
+        if (this.gameState !== 'running') return;
+        
+        // Move snake head
+        const head = {x: this.snake[0].x + this.dx, y: this.snake[0].y + this.dy};
+        
+        // Check wall collision
+        if (head.x < 0 || head.x >= this.tileCount || head.y < 0 || head.y >= this.tileCount) {
+            if (this.skills.ghost && !this.ghostModeUsed) {
+                // Ghost mode - wrap around
+                head.x = head.x < 0 ? this.tileCount - 1 : head.x >= this.tileCount ? 0 : head.x;
+                head.y = head.y < 0 ? this.tileCount - 1 : head.y >= this.tileCount ? 0 : head.y;
+                this.ghostModeUsed = true;
+            } else {
+                this.gameOver();
+                return;
+            }
+        }
+        
+        // Check obstacle collision
+        if (this.obstacles.some(obs => obs.x === head.x && obs.y === head.y)) {
+            this.gameOver();
+            return;
+        }
+        
+        // Check self collision
+        if (this.snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            if (this.skills.shrink && this.snake.length > 3) {
+                // Emergency shrink
+                this.snake = this.snake.slice(0, Math.ceil(this.snake.length / 2));
+            } else {
+                this.gameOver();
+                return;
+            }
+        }
+        
+        this.snake.unshift(head);
+        
+        // Check food collision
+        let foodEaten = false;
+        if (head.x === this.food.x && head.y === this.food.y) {
+            foodEaten = true;
+            const baseScore = this.gameMode === 'speed' ? 15 : 10;
+            const scoreMultiplier = this.skills.score1 ? 2 : 1;
+            this.score += baseScore * scoreMultiplier;
+            this.food = this.generateFood();
+            
+            // Generate bonus food occasionally
+            if (this.skills.bonus && Math.random() < 0.3 && !this.bonusFood) {
+                this.bonusFood = this.generateFood();
+            }
+        }
+        
+        // Check bonus food collision
+        if (this.bonusFood && head.x === this.bonusFood.x && head.y === this.bonusFood.y) {
+            foodEaten = true;
+            this.score += 50;
+            this.bonusFood = null;
+        }
+        
+        if (!foodEaten) {
+            this.snake.pop();
+        }
+        
+        this.updateUI();
+        this.draw();
+    }
+    
+    generateFood() {
+        let newFood;
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * this.tileCount),
+                y: Math.floor(Math.random() * this.tileCount)
+            };
+        } while (
+            this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
+            this.obstacles.some(obs => obs.x === newFood.x && obs.y === newFood.y) ||
+            (this.bonusFood && this.bonusFood.x === newFood.x && this.bonusFood.y === newFood.y)
+        );
+        return newFood;
+    }
+    
+    generateObstacles() {
+        this.obstacles = [];
+        const obstacleCount = 8;
+        
+        for (let i = 0; i < obstacleCount; i++) {
+            let obstacle;
+            do {
+                obstacle = {
+                    x: Math.floor(Math.random() * this.tileCount),
+                    y: Math.floor(Math.random() * this.tileCount)
+                };
+            } while (
+                this.snake.some(segment => segment.x === obstacle.x && segment.y === obstacle.y) ||
+                this.obstacles.some(obs => obs.x === obstacle.x && obs.y === obstacle.y) ||
+                (Math.abs(obstacle.x - 10) < 3 && Math.abs(obstacle.y - 10) < 3) // Keep spawn area clear
+            );
+            this.obstacles.push(obstacle);
+        }
+    }
+    
+    draw() {
+        // Clear canvas
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw grid
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        for (let i = 0; i <= this.tileCount; i++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(i * this.gridSize, 0);
+            this.ctx.lineTo(i * this.gridSize, this.canvas.height);
+            this.ctx.stroke();
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, i * this.gridSize);
+            this.ctx.lineTo(this.canvas.width, i * this.gridSize);
+            this.ctx.stroke();
+        }
+        
+        // Draw obstacles
+        this.ctx.fillStyle = '#8B4513';
+        this.obstacles.forEach(obstacle => {
+            this.ctx.fillRect(obstacle.x * this.gridSize, obstacle.y * this.gridSize, this.gridSize - 2, this.gridSize - 2);
+        });
+        
+        // Draw food
+        this.ctx.fillStyle = '#FF6B6B';
+        this.ctx.beginPath();
+        this.ctx.arc(
+            this.food.x * this.gridSize + this.gridSize / 2,
+            this.food.y * this.gridSize + this.gridSize / 2,
+            this.gridSize / 2 - 2,
+            0,
+            2 * Math.PI
+        );
+        this.ctx.fill();
+        
+        // Draw bonus food
+        if (this.bonusFood) {
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.beginPath();
+            this.ctx.arc(
+                this.bonusFood.x * this.gridSize + this.gridSize / 2,
+                this.bonusFood.y * this.gridSize + this.gridSize / 2,
+                this.gridSize / 2 - 2,
+                0,
+                2 * Math.PI
+            );
+            this.ctx.fill();
+        }
+        
+        // Draw snake
+        this.snake.forEach((segment, index) => {
+            if (index === 0) {
+                // Snake head
+                this.ctx.fillStyle = this.ghostModeUsed ? 'rgba(76, 175, 80, 0.7)' : '#4CAF50';
+            } else {
+                // Snake body
+                this.ctx.fillStyle = `rgba(76, 175, 80, ${1 - index * 0.05})`;
+            }
+            
+            this.ctx.fillRect(
+                segment.x * this.gridSize + 1,
+                segment.y * this.gridSize + 1,
+                this.gridSize - 2,
+                this.gridSize - 2
+            );
+        });
+    }
+    
+    gameOver() {
+        this.gameState = 'gameOver';
+        clearInterval(this.gameLoop);
+        
+        // Update high score
+        if (this.score > this.highScore) {
+            this.highScore = this.score;
+            localStorage.setItem('snakeHighScore', this.highScore);
+        }
+        
+        // Award skill points
+        const earnedSP = Math.floor(this.score / 50);
+        this.skillPoints += earnedSP;
+        localStorage.setItem('snakeSkillPoints', this.skillPoints);
+        
+        // Show game over modal
+        document.getElementById('finalScore').textContent = this.score;
+        document.getElementById('earnedSP').textContent = earnedSP;
+        document.getElementById('gameOverModal').style.display = 'flex';
+        
+        this.updateUI();
+        this.updateSkillTree();
+    }
+    
+    unlockSkill(skillId) {
+        const skillCosts = {
+            speed1: 5, speed2: 10, score1: 8, bonus: 12, ghost: 15, shrink: 20
+        };
+        
+        const cost = skillCosts[skillId];
+        if (this.skillPoints >= cost && !this.skills[skillId]) {
+            // Check prerequisites
+            if (skillId === 'speed2' && !this.skills.speed1) return;
+            
+            this.skills[skillId] = true;
+            this.skillPoints -= cost;
+            
+            localStorage.setItem('snakeSkills', JSON.stringify(this.skills));
+            localStorage.setItem('snakeSkillPoints', this.skillPoints);
+            
+            this.updateUI();
+            this.updateSkillTree();
+        }
+    }
+    
+    updateUI() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('highScore').textContent = this.highScore;
+        document.getElementById('skillPoints').textContent = this.skillPoints;
+    }
+    
+    updateSkillTree() {
+        const skillCosts = {
+            speed1: 5, speed2: 10, score1: 8, bonus: 12, ghost: 15, shrink: 20
+        };
+        
+        Object.keys(skillCosts).forEach(skillId => {
+            const skillItem = document.querySelector(`[data-skill="${skillId}"]`);
+            const skillBtn = skillItem.querySelector('.skill-btn');
+            
+            if (this.skills[skillId]) {
+                skillItem.classList.add('unlocked');
+                skillBtn.textContent = 'Unlocked';
+                skillBtn.classList.add('unlocked');
+                skillBtn.disabled = true;
+            } else {
+                const cost = skillCosts[skillId];
+                const canAfford = this.skillPoints >= cost;
+                const meetsPrereqs = skillId !== 'speed2' || this.skills.speed1;
+                
+                skillBtn.disabled = !canAfford || !meetsPrereqs;
+                if (!meetsPrereqs) {
+                    skillBtn.textContent = 'Locked';
+                } else if (!canAfford) {
+                    skillBtn.textContent = 'Need SP';
+                } else {
+                    skillBtn.textContent = 'Unlock';
+                }
+            }
+        });
+    }
+}
+
+// Initialize game when page loads
+window.addEventListener('load', () => {
+    new SnakeGame();
+});
+</script>
